@@ -54,8 +54,8 @@ class MyAgent(DockerAgentRunner):
         self.model = Net().to(self.device)
         self.obs_width = 11
         import os
-        if os.path.exists("../model_2.pth"):
-            self.model.load_state_dict(torch.load("model_2.pth"))
+        if os.path.exists("../model.pth"):
+            self.model.load_state_dict(torch.load("model.pth"))
         self._agent = agents.SimpleAgent()
         self.obs_fps = [torch.zeros(366),torch.zeros(366),torch.zeros(366)]
 
