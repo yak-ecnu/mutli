@@ -56,7 +56,6 @@ class MyAgent(DockerAgentRunner):
         import os
         if os.path.exists("../model_2.pth"):
             self.model.load_state_dict(torch.load("model_2.pth"))
-            print('找到了啊啊啊啊啊啊啊啊啊啊啊1啊啊啊啊啊啊啊啊')
         self._agent = agents.SimpleAgent()
         self.obs_fps = [torch.zeros(366),torch.zeros(366),torch.zeros(366)]
 
