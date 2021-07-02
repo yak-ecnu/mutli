@@ -106,41 +106,6 @@ game_idx         = 0
 device           = "cpu" # Hard-coded since we have a GPU, but does not want to use
 clip_param       = 0.2
 
-""" class Net(nn.Module):
-
-    def __init__(self):
-        super(Net, self).__init__()
-        # self.nseq1 = nn.Sequential(
-        #     nn.Conv2d(12,16,kernel_size=3),
-        #     nn.BatchNorm2d(16),
-        #     nn.ReLU(),
-        #     nn.Conv2d(16,32,kernel_size=5),
-        #     nn.BatchNorm2d(32),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32,64,kernel_size=3),
-        #     nn.BatchNorm2d(64),
-        #     nn.ReLU(),
-        # )
-        self.nseq2 = nn.Sequential(
-            nn.Linear(1464 ,256),
-            nn.ReLU(),
-            nn.Linear(256,128),
-            nn.ReLU(),
-            nn.Linear(128,64),
-            nn.ReLU(),
-            nn.Linear(64,16),
-            nn.ReLU(),
-            nn.Linear(16,6),
-        )
-
-    def forward(self, obs):
-        obs = obs.reshape((-1,1464))
-        # board = obs[:,:,:363].reshape((-1, 12,11,11))
-        # board = self.nseq1(board)
-        # board = board.reshape((obs.size(0), -1))
-        # print(board.shape)
-        # obs = torch.cat([board, obs[:, 363:366]], dim=1)
-        return self.nseq2(obs) """
 
 
 class MyAgent(DockerAgentRunner):
@@ -149,8 +114,8 @@ class MyAgent(DockerAgentRunner):
     def __init__(self):
         self.model = ActorCritic(num_inputs, num_outputs, hidden_size).to(device)
         import os
-        if os.path.exists("../newAI02_from_oldAI04.pth"):
-            self.model.load_state_dict(torch.load("newAI02_from_oldAI04.pth", map_location='cpu'))
+        if os.path.exists("./model.pth"):
+            self.model = torch.load("model.pth", map_location='cpu')
         self._agent = agents.SimpleAgent()
 
     def act(self, observation, action_space):
