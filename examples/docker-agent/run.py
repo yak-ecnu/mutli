@@ -2,14 +2,111 @@
 import numpy as np
 import torch
 from torch import nn
-from torch.nn import functional as F
+#from torch.nn import functional as F
+import torch.optim as optim
+from torch.autograd import Variable
+import torch.nn.functional as F
+from torch.distributions import Normal
 
+import pommerman
 from pommerman import agents
 from pommerman.runner import DockerAgentRunner
+import time
+
+import math
+import random
+import datetime
 
 import random
 
-class Net(nn.Module):
+from IPython import display
+
+# Our own files
+from .convertInputMapToTrainingLayers import*
+#from convertInputMapToTrainingLayers import *
+
+
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.normal_(m.weight, mean=0., std=0.1)
+        nn.init.constant_(m.bias, 0.1)
+
+class ActorCritic(nn.Module):
+    def __init__(self, num_inputs, num_outputs, hidden_size, std=0.0):
+        super(ActorCritic, self).__init__()
+        
+        self.critic_con = nn.Sequential(
+            nn.Conv2d(in_channels=7,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.Conv2d(in_channels=64,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.Conv2d(in_channels=64,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.ReLU()
+        )
+        self.critic_linear = nn.Sequential(
+            nn.Linear(3*3*64, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, 1)
+        )
+        
+        self.actor_con = nn.Sequential(
+            nn.Conv2d(in_channels=7,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.Conv2d(in_channels=64,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.Conv2d(in_channels=64,
+                      out_channels=64, 
+                      kernel_size=3, 
+                      padding=0),
+            nn.ReLU()
+        )
+        self.actor_linear = nn.Sequential(
+            nn.Linear(3*3*64, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, num_outputs)
+        )
+        
+        self.log_std = nn.Parameter(torch.ones(num_outputs) * std)
+        
+        self.apply(init_weights)
+        
+    def forward(self, x):
+        value = self.critic_con(x)
+        value = self.critic_linear(value.view(-1, 3*3*64))
+        
+        mu    = self.actor_con(x)
+        mu    = self.actor_linear(mu.view(-1, 3*3*64))
+        
+        std1  = self.log_std.exp()
+        std   = std1.expand_as(mu)
+        dist  = Normal(mu, std)
+        return dist, value
+
+num_inputs       = 324
+num_outputs      = 6
+hidden_size      = 1024
+lr               = 1e-6
+lr_RND           = 1e-3
+mini_batch_size  = 5
+ppo_epochs       = 4
+max_frames       = 1500000
+frame_idx        = 0
+game_idx         = 0
+device           = "cpu" # Hard-coded since we have a GPU, but does not want to use
+clip_param       = 0.2
+
+""" class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__()
@@ -43,19 +140,46 @@ class Net(nn.Module):
         # board = board.reshape((obs.size(0), -1))
         # print(board.shape)
         # obs = torch.cat([board, obs[:, 363:366]], dim=1)
-        return self.nseq2(obs)
+        return self.nseq2(obs) """
 
 
 class MyAgent(DockerAgentRunner):
     '''An example Docker agent class'''
 
     def __init__(self):
+        self.model = ActorCritic(num_inputs, num_outputs, hidden_size).to(device)
+        import os
+        if os.path.exists("../newAI02_from_oldAI04.pth"):
+            self.model.load_state_dict(torch.load("newAI02_from_oldAI04.pth", map_location='cpu'))
+        self._agent = agents.SimpleAgent()
+
+    def act(self, observation, action_space):
+        obs = self.translate_obs(observation)
+        obs = torch.from_numpy(obs).float().to(self.device)
+        self.obs_fps.append(obs)
+        obs = torch.cat(self.obs_fps[-4:])
+        sample = random.random()
+        if sample > 0.1:
+            re_action = self.model(obs).argmax().item()
+            return re_action
+        else:
+            return self._agent.act(observation, action_space)
+
+    """ def act(self, observation, action_space):
+        return self.agent(torch.from_numpy(observation).float().to('cpu'), action_space) """
+
+
+
+""" class MyAgent(DockerAgentRunner):
+    '''An example Docker agent class'''
+
+    def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = Net().to(self.device)
+        self.model = ActorCritic(num_inputs, num_outputs, hidden_size).to(self.device)
         self.obs_width = 11
         import os
-        if os.path.exists("./model_2.pth"):
-            self.model.load_state_dict(torch.load("model_2.pth"))
+        if os.path.exists("../newAI02_from_oldAI04.pth"):
+            self.model=torch.load("newAI02_from_oldAI04.pth")
         self._agent = agents.SimpleAgent()
         self.obs_fps = [torch.zeros(366),torch.zeros(366),torch.zeros(366)]
 
@@ -112,7 +236,7 @@ class MyAgent(DockerAgentRunner):
         return self._agent.episode_end(reward)
 
     def shutdown(self):
-        return self._agent.shutdown()
+        return self._agent.shutdown() """
 
 
 def main():
